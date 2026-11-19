@@ -90,72 +90,95 @@
     <button id="send-btn">送信</button>
   </div>
 
-  <script type="module">
-    import { initializeApp } from "https://gstatic.com";
-    import { getFirestore, collection, addDoc, onSnapshot, query, orderBy, serverTimestamp } from "https://gstatic.com";
-
-    const firebaseConfig = {
-      apiKey: "AIzaSyC8PUGHCI90I0SACnhaSJvWa3ZezXTtA8M",
-      authDomain: "hellochat1-62589.firebaseapp.com",
-      projectId: "hellochat1-62589",
-      storageBucket: "hellochat1-62589.firebasestorage.app",
-      messagingSenderId: "891856165914",
-      appId: "1:891856165914:web:c68718433a84cb539a45a3",
-      measurementId: "G-9FMVX3HZHG"
+  <script>
+    // URLが短縮されないように分割して読み込みます
+    const base = "https://" + "://gstatic.com";
+    const s1 = document.createElement("script");
+    s1.src = base + "firebase-app-compat.js";
+    s1.onload = () => {
+      const s2 = document.createElement("script");
+      s2.src = base + "firebase-firestore-compat.js";
+      s2.onload = startChat;
+      document.head.appendChild(s2);
     };
+    document.head.appendChild(s1);
 
-    const app = initializeApp(firebaseConfig);
-    const db = getFirestore(app);
-    const messagesRef = collection(db, "messages");
+    function startChat() {
+      const firebaseConfig = {
+        apiKey: "AIzaSyC8PUGHCI90I0SACnhaSJvWa3ZezXTtA8M",
+        authDomain: "hellochat1-62589.firebaseapp.com",
+        projectId: "hellochat1-62589",
+        storageBucket: "hellochat1-62589.firebasestorage.app",
+        messagingSenderId: "891856165914",
+        appId: "1:891856165914:web:c68718433a84cb539a45a3",
+        measurementId: "G-9FMVX3HZHG"
+      };
 
-    const messagesDiv = document.getElementById("messages");
-    const nameInput = document.getElementById("name-input");
-    const textInput = document.getElementById("text-input");
-    const sendBtn = document.getElementById("send-btn");
+      firebase.initializeApp(firebaseConfig);
+      const db = firebase.firestore();
+      const messagesRef = db.collection("messages");
 
-    async function sendMessage() {
-      const name = nameInput.value.trim() || "名無し";
-      const text = textInput.value.trim();
-      if (!text) return;
+      const messagesDiv = document.getElementById("messages");
+      const nameInput = document.getElementById("name-input");
+      const textInput = document.getElementById("text-input");
+      const sendBtn = document.getElementById("send-btn");
 
-      textInput.value = "";
-      await addDoc(messagesRef, {
-        name: name,
-        text: text,
-        createdAt: serverTimestamp()
+      async function sendMessage() {
+        const name = nameInput.value.trim() || "名無し";
+        const text = textInput.value.trim();
+        if (!text) return;
+
+        textInput.value = "";
+        try {
+          await messagesRef.add({
+            name: name,
+            text: text,
+            createdAt: firebase.firestore.FieldValue.serverTimestamp()
+          });
+        } catch (err) {
+          alert("送信エラー: " + err.message);
+        }
+      }
+
+      sendBtn.addEventListener("click", sendMessage);
+      textInput.addEventListener("keypress", (e) => {
+        if (e.key === "Enter") sendMessage();
       });
-    }
 
-    sendBtn.addEventListener("click", sendMessage);
-    textInput.addEventListener("keypress", (e) => {
-      if (e.key === "Enter") sendMessage();
-    });
+      messagesRef.orderBy("createdAt", "asc").onSnapshot((snapshot) => {
+        messagesDiv.innerHTML = "";
+        snapshot.forEach((doc) => {
+          const data = doc.data();
+          const timeStr = data.createdAt
+            ? new Date(data.createdAt.toDate()).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+            : "送信中...";
 
-    const q = query(messagesRef, orderBy("createdAt", "asc"));
-    onSnapshot(q, (snapshot) => {
-      messagesDiv.innerHTML = "";
-      snapshot.forEach((doc) => {
-        const data = doc.data();
-        const timeStr = data.createdAt ? new Date(data.createdAt.toDate()).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : "送信中...";
-        
-        const item = document.createElement("div");
-        item.className = "msg-item";
-        item.innerHTML = `
-          <div class="msg-header">
-            <span class="msg-name">${escapeHTML(data.name)}</span>
-            <span class="msg-time">${timeStr}</span>
-          </div>
-          <div class="msg-text">${escapeHTML(data.text)}</div>
-        `;
-        messagesDiv.appendChild(item);
+          const item = document.createElement("div");
+          item.className = "msg-item";
+
+          const header = document.createElement("div");
+          header.className = "msg-header";
+
+          const nameSpan = document.createElement("span");
+          nameSpan.className = "msg-name";
+          nameSpan.textContent = data.name;
+
+          const timeSpan = document.createElement("span");
+          timeSpan.className = "msg-time";
+          timeSpan.textContent = timeStr;
+
+          const textDiv = document.createElement("div");
+          textDiv.className = "msg-text";
+          textDiv.textContent = data.text;
+
+          header.appendChild(nameSpan);
+          header.appendChild(timeSpan);
+          item.appendChild(header);
+          item.appendChild(textDiv);
+          messagesDiv.appendChild(item);
+        });
+        messagesDiv.scrollTop = messagesDiv.scrollHeight;
       });
-      messagesDiv.scrollTop = messagesDiv.scrollHeight;
-    });
-
-    function escapeHTML(str) {
-      return str.replace(/[&<>"']/g, (m) => ({
-        '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
-      }[m]));
     }
   </script>
 </body>
